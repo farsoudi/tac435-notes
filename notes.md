@@ -58,7 +58,46 @@ string MakeStr2() {
 }
 
 int main() {
+    // Mandatory elision happens iff:
+    // 1. The function returns an unnamed return value
+    // 2. Saving the result into a copy constructor
     string r1(MakeStr2());
+
+    string r2;
+    // This does not elide because its going into assignment
+    // Assignemnt cannot be elided ever
 }
+```
+
+
+
+```cpp
+const S& f1(const S& s) {
+   return s;
+}
+
+S f2(const S& s) {
+   S x(s);
+   return x;
+}
+
+int main() {
+   S a;
+   S b = a;
+   S c = f2(a);
+   const S& d = f1(c);
+   return 0;
+}
+```
+order:
+```
+Default (a)
+Copy (a to b)
+Copy (s to x)
+Move (x to c)
+Destructor (x)
+Destructor (c)
+Destructor (b)
+Destructor (a)
 ```
 

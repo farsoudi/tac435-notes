@@ -4,7 +4,7 @@ Week 1, Lecture 2
 
 * lvalue is a variable or object that persists beyond an expression
     * if you can take the address of a, it is most likely an lvalue.
-```
+```cpp
 
 int a = 5;
 &a; //valid because a is an lvalue

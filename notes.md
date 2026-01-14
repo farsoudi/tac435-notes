@@ -32,8 +32,33 @@ Rule of 5:
 - Move assignment operator (T& operator=(T&&) noexcept)
 
 
+## Elision
+* c++20, unnamed return value skips over a step
+* Needs to be:
+    * unnamed
+    * constructing something from unnamed return value
 ```cpp
 //use std::move() when moving dynamic memory in a move constructor
 int a = new int(5);
 int b = std::move(a);
 ```
+
+* If a function returns a value, it is a rvalue.
+* Otherwise if it returns a reference, it is a lvalue.
+
+
+```cpp
+string MakeStr() {
+    return string("string1");
+}
+
+string MakeStr2() {
+    string temp("string2");
+    return temp;
+}
+
+int main() {
+    string r1(MakeStr2());
+}
+```
+

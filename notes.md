@@ -3,7 +3,7 @@ Move Semantics
 Week 1, Lecture 2
 
 * lvalue is a variable or object that persists beyond an expression
-** if you can take the address of a, it is most likely an lvalue.
+    * if you can take the address of a, it is most likely an lvalue.
 ```
 
 int a = 5;

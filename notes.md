@@ -30,3 +30,10 @@ Rule of 5:
 - Copy assignment operator (T& operator=(const T&))
 - Move constructor (T(T&&) noexcept)
 - Move assignment operator (T& operator=(T&&) noexcept)
+
+
+```cpp
+//use std::move() when moving dynamic memory in a move constructor
+int a = new int(5);
+int b = std::move(a);
+```

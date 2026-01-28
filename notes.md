@@ -100,3 +100,225 @@ Destructor (b)
 Destructor (a)
 ```
 
+---
+
+# Basic Parallel Programming
+*Week 2, Lecture 1, 01-21*
+
+PA2
+* Part 1 – Implement open addressed hash table (for cache performance)
+* Part 2 – Implement a “dictionary” style attack
+* Part 3 – Implement a “brute force” style attack
+* We implement open addressing for cache performance instead of buckets
+    * std::unordered_map is using buckets
+
+### HashTable declaration
+```cpp
+template <typename KeyType, typename ValueType,
+typename HashFuncType = std::hash<KeyType>>
+class HashTable
+```
+In practice:
+```cpp
+HashTable<std::string, int> myTable;
+```
+Member data: 
+```cpp
+// Underlying hash table array (should be vector but we are practicing alloc/dealloc)
+std::pair<KeyType, ValueType>* mTableData;
+// Tracks whether an index is occupied
+std::vector<bool> mOccupancy;
+// Allocated capacity of hash table array
+size_t mCapacity;
+// Number of elements in HashTable
+size_t mSize;
+// Hash function
+HashFuncType mHashFunc;
+```
+
+#### Dictionary Attack
+* Key - Encrypted word from dictionary
+* Value - Plain text word from dictionary
+#### Bruteforce Attack
+* Key - Encrypted word from the password file
+* Value - Solved password (initially from empty string)
+
+* They may hash to the same hash?
+* You can hash each independently
+* In a serial implementation, you would have to test 50^4 phrases one at a time.
+
+### Lambda Functions
+```cpp
+std::sort(v.begin(), v.end(), [](int a, int b) -> bool { //dont really need to show the return type
+// Return a greater than b instead of less
+return a > b;
+});
+// v = {100, 10, -10}
+```
+* This uses a new syntax...
+
+### Capture Clause
+```cpp
+int outOfScopeByDefaultCount = 0;
+std::sort(v.begin(), v.end(), [&outOfScopeByDefaultCount](int a, int b) -> bool { //dont really need to show the return type
+// Return a greater than b instead of less
+    ++outOfScopeByDefaultCount;
+    return a > b;
+});
+// v = {100, 10, -10}
+```
+***Lambda that returns a bool and takes in two ints:***
+```cpp
+std::function<bool(int, int)> greater =
+[](int a, int b) {
+return a > b;
+};
+```
+
+
+## As of C++17, Algorithms support parallelization
+```cpp
+// Old version (still works if you want to use it):
+std::for_each(v.begin(), v.end(), ...);
+
+// New version (supports execution policy):
+std::for_each(std::execution::par, v.begin(),
+v.end(), ...);
+```
+* Only parallelize the outer loop
+* Grain size
+![Image 9](img/img9.png)
+
+* Sharing data between parallel operations is okay if it's read Only
+* Writing data can cause crashes'
+
+
+```
+Common Parallel Pitfall
+
+//Sharing data between parallel operations is okay if it’s read-only
+
+//However, if you write to shared data, you have to be very careful
+std::vector<int> test = { 1, 1, 2, 3, 5 };
+std::vector<int> copy;
+
+// Let's use parallel_for_each to copy!
+std::for_each(std::execution::par, test.begin(), test.end(),
+[&](int i) {
+copy.push_back(i); // This is bad...
+
+});
+
+for (auto i : copy) {
+std::cout << i << std::endl;
+```
+![Image 10](img/img10.png)
+
+# Basic Parallel Programming
+*Week 3, Lecture 1, 01-26*
+## Optimized Code
+
+* Pass by reference
+* Postpone variable declarations when possible
+```cpp
+T x;
+if (b) {
+x = t;
+// Do stuff...
+}
+// Declare Inside (b is true half the time)
+if (b) {
+T x = t;
+// Do stuff...
+}
+```
+```cpp
+// This constructs a string on every iteration
+for (...) {
+std::string myString;
+}
+
+// This constructs one string total
+std::string myString;
+for (...) {
+}
+```
+
+* use += instead of +
+* use ++() instead of ()++
+* switches instead of else if chains
+* be careful w strings
+    * appending to a string dynamically is expensive if it grows (dynamic realloc)
+* use '\n' instead of std::endl
+    * because not only does it writes to a line, but it ALSO flushes a buffer, i.e. writes everything in buffer to a file
+```cpp
+for i ...
+for j ...
+for k ...
+phrase = words[i] + words[j] + words[k]
+//Do:
+for i ...
+for j ...
+ijword = words[i] + words[j];
+for k ...
+phrase = ijword + words[k]
+//Can make the above even better w/ +=
+//Use \n!
+```
+* 80/20 rule
+    * 80% of your execution time is spent in 20% of your code
+    * Profilers can show which functions take up the most time
+* inline functions
+    * prevents function call overhead for small functions
+        * compiler wont inline virtual functions or recursive or ie
+* loop unrolling, instead of incrementing by 1 increment loop by 4 ie
+* return unnnamed return values, optimization potential is high, might be moved into anothre object
+
+## Unions
+* unions can have multiple interpretations to look at memory
+* ex. small string w literal chra array or large string with char pointer
+```cpp
+union
+{
+    struct
+    {
+        char* mData;
+        size_t mSize;
+        size_t mCapacity;
+
+    } Large;
+
+    struct
+    {
+    char mData[22];
+    char mSize;
+
+    bool mIsSmallString;
+
+    } Small;
+} mStr
+;
+```
+
+# Sizeof and Vtables
+*Week 3, Lecture 2, 01-28*
+* **sizeof** returns number of bytes of a particular data type
+```cpp
+// Returns 4
+sizeof(int)
+
+char a;
+// Returns 1
+sizeof(a)
+
+// Returns 1
+sizeof(bool)
+```
+| Type    | Size (in bytes)              |
+|---------|------------------------------|
+| char    | 1                            |
+| bool    | 1                            |
+| int     | 4                            |
+| float   | 4                            |
+| double  | 8                            |
+| pointer | 8 (since we are using 64-bit)|

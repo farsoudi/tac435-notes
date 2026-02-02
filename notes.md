@@ -375,3 +375,137 @@ class Test1
 # Smart Pointers
 *Week 4, Lecture 1, 02-02*
 
+## Memory Leaks
+* Forgetting to deallocate memory is a very common mistake in C/C++ code
+```cpp
+int main()
+{
+    Square* mySquare = new Square();
+    // OOPS!
+    return 0;
+}
+```
+
+* Sometimes the leaks can be caused by exceptions:
+```cpp
+bool badStuff = false;
+Square* mySquare = new Square();
+
+if (badStuff)
+{
+    throw std::exception();
+}
+
+// Deallocate, but what happens if there's a throw?
+delete mySquare;
+```
+
+* Worse is when there's confusion between who should delete what:
+```cpp
+void doStuff(Shape* shape) {
+    // Do stuff...
+    // Done with shape, so delete it!
+    delete shape;
+}
+
+int main() {
+    Square* mySquare = new Square();
+    doStuff(mySquare);
+    delete mySquare;  // Uh-oh...
+
+    return 0;
+}
+```
+
+### Smart Pointer
+* A **Smart Pointer** is an object that encapsulates dynamically allocated data
+* There are several variations of smart pointers.
+* **std::unique_ptr**: allows only a single reference at a time.
+* **std::shared_ptr**: allows multiple references at once.
+* **std::weak_ptr**: allows for weak references to shared pointers
+* ***Rule of Zero***
+    * you shouldnt have to overload any of the five member functions
+    * can only be the case if you avoid using new altogether and instead use STL collections and smart pointers.
+
+### Unique Pointer
+* A **unique pointer** is a pointer that uniquely controls the lifetime of an object
+* When the unique pointer goes out of scope, the object is deleted
+* This solves the basic Memory Leaks 101/102 problems:
+    - Forgetting to deallocate
+    - Exception bypassing a delete statement
+
+**Minimal Declaration:**
+```cpp
+template <typename T>
+class UniquePtr {
+public:
+    // Construct based on pointer to dynamic object
+    explicit UniquePtr(T* obj);
+
+    // Destructor (clean up memory)
+    ~UniquePtr();
+
+    // Allow moves (not shown)
+    // ...
+
+    // Overload dereferencing * and ->
+    T& operator*();
+    T* operator->();
+private:
+    // Disallow assignment/copy
+    UniquePtr(const UniquePtr& other);
+    UniquePtr& operator=(const UniquePtr& other);
+
+    // Track the dynamically allocated object
+    T* mObj;
+};
+```
+
+**Constructor/Destructor:**
+```cpp
+// Construct based on pointer to dynamic object
+template <typename T>
+UniquePtr<T>::UniquePtr(T* obj)
+: mObj(obj)
+{
+}
+
+// Destructor (clean up memory)
+template <typename T>
+UniquePtr<T>::~UniquePtr()
+{
+    // Delete dynamically allocated object
+    delete mObj;
+}
+```
+
+**Operators:**
+```cpp
+// Overloaded dereferencing
+template <typename T>
+T& UniquePtr<T>::operator*()
+{
+    return *mObj;
+}
+
+template <typename T>
+T* UniquePtr<T>::operator->()
+{
+    return mObj;
+}
+```
+
+**UniquePtr in Action:**
+```cpp
+int main() {
+    // Construct a scoped pointer to a newly-allocated object
+    UniquePtr<Square> mySquare(new Square());
+
+    // Can call functions just like a regular pointer!
+    mySquare->Draw();
+
+    // No delete necessary
+    return 0;
+}
+```
+

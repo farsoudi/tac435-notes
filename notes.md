@@ -434,7 +434,7 @@ int main() {
     - Forgetting to deallocate
     - Exception bypassing a delete statement
 
-**Minimal Declaration:**
+#### Minimal Declaration
 ```cpp
 template <typename T>
 class UniquePtr {
@@ -461,7 +461,7 @@ private:
 };
 ```
 
-**Constructor/Destructor:**
+#### Constructor/Destructor
 ```cpp
 // Construct based on pointer to dynamic object
 template <typename T>
@@ -479,7 +479,7 @@ UniquePtr<T>::~UniquePtr()
 }
 ```
 
-**Operators:**
+#### Operators
 ```cpp
 // Overloaded dereferencing
 template <typename T>
@@ -495,7 +495,7 @@ T* UniquePtr<T>::operator->()
 }
 ```
 
-**UniquePtr in Action:**
+#### UniquePtr in Action
 ```cpp
 int main() {
     // Construct a scoped pointer to a newly-allocated object
@@ -508,4 +508,114 @@ int main() {
     return 0;
 }
 ```
+* In the case of unique pointers *we actually* ***DONT*** *want to implement copy* because there shouldn't be copies.
 
+### Shared Pointer
+* A **shared pointer** is used when an object has shared ownership between multiple pointers
+* Uses **reference counting** to track the number of references to the dynamically allocated object is tracked
+* When the references hit zero, the object will be automatically deallocated
+* **Important!!!** – This is different from garbage collection (in a language such as Java) because there is a well-defined and consistent point where it will deallocate
+
+#### Control Block
+* A reference counting pointer needs a **control block** – another dynamically allocated object which tracks the number of references
+* All instances of SharedPtr that point to the same object will also point to the same control block
+
+#### Minimal Declaration
+```cpp
+// Declare the control block
+struct ControlBlock {
+    unsigned mSharedCount;
+};
+
+template <typename T>
+class SharedPtr {
+public:
+    explicit SharedPtr(T* obj);
+    // Allow copy construction/assignment
+    SharedPtr(const SharedPtr& other);
+    SharedPtr& operator=(const SharedPtr& other);
+
+    // (Allow moves, too)
+    // ...
+
+    ~SharedPtr();
+    T& operator*();
+    T* operator->();
+private:
+    // Pointer to dynamically allocated object
+    T* mObj;
+    // Pointer to control block
+    ControlBlock* mBlock;
+};
+```
+
+#### Basic Constructor
+```cpp
+// Construct based on pointer to dynamic object
+template <typename T>
+SharedPtr<T>::SharedPtr(T* obj)
+    : mObj(obj)
+{
+    // Dynamically allocate a new control block
+    mBlock = new ControlBlock;
+    // Initially, one reference (self)
+    mBlock->mSharedCount = 1;
+}
+```
+
+#### Copy Constructor
+```cpp
+// Copy constructor
+template <typename T>
+SharedPtr<T>::SharedPtr(const SharedPtr<T>& other)
+{
+    // Grab object and control block from other
+    mObj = other.mObj;
+    mBlock = other.mBlock;
+
+    // Increment ref count
+    mBlock->mSharedCount += 1;
+}
+```
+
+#### Destructor
+```cpp
+// Destructor (reduce ref count)
+template <typename T>
+SharedPtr<T>::~SharedPtr()
+{
+    // Decrement ref count
+    mBlock->mSharedCount -= 1;
+
+    // If there are zero references, delete the object
+    // and the control block
+    if (mBlock->mSharedCount == 0) {
+        delete mObj;
+        delete mBlock;
+    }
+}
+```
+
+#### Using SharedPtr w/ Functions
+```cpp
+// Smart pointers should almost always be passed by value
+void doStuff(SharedPtr<Shape> shape) {
+    shape->Draw();
+}
+
+int main() {
+    // Construct a scoped pointer to a newly-allocated object
+    SharedPtr<Shape> myShape(new Square());
+
+    doStuff(myShape);
+
+    return 0;
+}
+```
+
+#### Problems w/ SharedPtr
+* **Q:** What if class A has a SharedPtr to class B, and class B has a SharedPtr to class A?
+* **A:** Circular references means neither will ever be deleted
+
+* **Q:** What if you want to have an "observer" that can observe the SharedPtr but not affect the number of references?
+* **A:** It's currently not possible

@@ -375,7 +375,7 @@ class Test1
 # Smart Pointers
 *Week 4, Lecture 1, 02-02*
 
-## Memory Leaks
+### Memory Leaks
 * Forgetting to deallocate memory is a very common mistake in C/C++ code
 ```cpp
 int main()

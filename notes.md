@@ -577,6 +577,7 @@ SharedPtr<T>::SharedPtr(const SharedPtr<T>& other)
     mBlock->mSharedCount += 1;
 }
 ```
+* *This is one of the only times we want to implement the copy constructor as a shallow copy.*
 
 #### Destructor
 ```cpp
@@ -619,3 +620,32 @@ int main() {
 
 * **Q:** What if you want to have an "observer" that can observe the SharedPtr but not affect the number of references?
 * **A:** It's currently not possible
+* ***NOTE: MAKE SURE TO LOOK OVER FULL PTR CODE ON PIAZZA***
+
+### Weak Pointer
+* A **weak pointer** is a pointer that keeps a weak reference to a shared pointer
+* A **weak reference** does not affect the lifetime of the object, because it uses a separate count (this is in contrast to the references we had before, which were **strong references**)
+
+#### WeakPtr in Action
+```cpp
+WeakPtr<Shape> makeShapeWeak() {
+    // Construct a SharedPtr
+    SharedPtr<Shape> myShape(new Square());
+
+    WeakPtr<Shape> weakShape(myShape);
+
+    weakShape->Draw();
+
+    // Return a WeakPtr to the shape
+    return weakShape;
+}
+
+int main() {
+    WeakPtr<Shape> weakPtr(makeShapeWeak());
+
+    // Try to access weak reference here
+    weakPtr->Draw();
+
+    return 0;
+}
+```

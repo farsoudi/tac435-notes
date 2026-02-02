@@ -300,7 +300,7 @@ union
 ;
 ```
 
-# Sizeof and Vtables
+## Sizeof and Vtables
 *Week 3, Lecture 2, 01-28*
 * **sizeof** returns number of bytes of a particular data type
 ```cpp
@@ -322,3 +322,56 @@ sizeof(bool)
 | float   | 4                            |
 | double  | 8                            |
 | pointer | 8 (since we are using 64-bit)|
+```cpp
+class Test1
+{
+    char c;
+    int i;
+};
+```
+*This is bad practice, because there is padding between c and i.* ***data types have to be at an address divisible by the size of the data type***
+
+## Virtual functions
+ * non virtual: known at compile time what function you are calling
+ * virtual: sometimes not known at compile time what function you are using
+ ```cpp
+ struct Shape
+ {
+ // vtable* ptr = nullptr (pure virtual)
+    virtual void Draw() = 0;
+ };
+ struct Triangle : Shape
+ {
+ // vtable* ptr = &Triangle_VTBL;
+    virtual void Draw() { code } 
+ };
+ struct Circle : Shape
+ {
+ // vtable* ptr = &Circle_VTBL;
+    virtual void Draw() { code } 
+ };
+```
+**Polymorphism is when you have pointer/reference to base class and you call a function on it**
+ ```cpp
+ shape s = functionCall() //returns either triangle or circle
+ s->Draw()
+ ```
+![Image 11](img/img11.png)
+
+![Image 12](img/img12.png)
+
+* You can assume for any virtual classes the rowsize is going to be 8 because it has a vtable
+* sizeof empty class is 1.
+
+## std::string\_view
+#### Added in c++ 20
+![Image 13](img/img13.png)
+
+* *When passing a string literal char[] to a function that takes in a std::string, having the function paramater be a std::stringview instead is faster because you can view the char[] with std interpretations without having to create a new string*
+![Image 15](img/img15.png)
+
+![Image 16](img/img16.png)
+
+# Smart Pointers
+*Week 4, Lecture 1, 02-02*
+

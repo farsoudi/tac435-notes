@@ -649,3 +649,26 @@ int main() {
     return 0;
 }
 ```
+
+### Custom Deleters
+* You can declare a custom deleter to be called for deallocation – the simplest approach is to use a lambda expression:
+```cpp
+{
+    std::shared_ptr<int> sharedArray(new int[10], [](int* obj) {
+        delete[] obj;
+    });
+}
+```
+* The parameter should correspond to pointer to type
+* When you use a custom deleter, you **can't** use make_shared
+* In the prior example, as opposed to using a shared_ptr to an array, it may be better to just use an STL data structure
+* However, custom deleters can be useful in the instance where there's some very specific deinitialization you must perform
+
+### Unique Array
+* Unique pointer has a templated version that takes in an array, which you can use like this:
+```cpp
+std::unique_ptr<int[]> uniqueArray(new int[10]);
+```
+
+# Tries and PA3
+*Week 4, Lecture 2, 02-04*

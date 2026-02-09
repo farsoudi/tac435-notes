@@ -672,3 +672,285 @@ std::unique_ptr<int[]> uniqueArray(new int[10]);
 
 # Tries and PA3
 *Week 4, Lecture 2, 02-04*
+
+## Tries
+![Image 17](img/img17.png)
+
+* A tree used typically to store strings and allows for efficient matching of patterns and implementing things like autocomplete
+* **What to store for each node?**
+    * We are going to "rule of zero" this, so no raw pointers.
+    * Array of `unique_ptr`s to children (number of elements is alphabet size + 1; we will talk about the + 1 later)
+    * `char` for the letter stored at the node
+* **Trie template parameters**
+    ```cpp
+    template <size_t AlphabetSize, typename LetterToIdxFunc>
+    class Trie
+    ```
+    * `AlphabetSize` - how many different letters are in the alphabet the trie needs to support (for space efficiency)
+    * `LetterToIdxFunc` - maps a letter to a specific index in the array of children stored at each node
+* **Example LetterToIdxFunc (alphabet size 3: A, B, C)**
+    ```cpp
+    struct BasicTextIdx {
+        size_t operator()(char c) const {
+            switch (c) {
+                case 'A': return 0;
+                case 'B': return 1;
+                case 'C': return 2;
+                default: return 0;
+            }
+        }
+    };
+    ```
+* **What member data does the trie have?**
+    * Pointer to root node
+    * Instance of `LetterToIdxFunc` object
+* *start/end*
+    * `*`: start
+    * `$`: end
+
+### Insertion
+* **Insert idea**
+    * Get a string to insert; use existing nodes when appropriate or create new nodes if they don't already exist
+    ```cpp
+    void Insert(std::string_view word)
+    ```
+    ![Image 18](img/img18.png)
+
+* **Breadth-First-Search traversal**
+    * Not particularly useful on a trie, but helpful for writing test cases to ensure the trie is constructed to spec
+    * Calls `visitFunc` on each node in the tree in a BFS manner, starting at root
+    ```cpp
+    void BFS(std::function<void(char)> visitFunc)
+    ```
+### FindPrefix
+* Given a word, finds the longest prefix of that word which exists in the trie (or empty string if none)
+```cpp
+std::string FindPrefix(std::string_view word)
+```
+```cpp
+Trie<26, EnglishTextIdx> t;
+t.Insert("BAN");
+t.Insert("BANANA");
+
+t.FindPrefix("BANANAS");
+// "BANANA"
+```
+* To implement efficiently, update the best option along the way during the search
+![Image 19](img/img19.png)
+
+### CompleteFromPrefix
+* Given a prefix, finds the X shortest words in the trie that match the prefix
+```cpp
+std::vector<std::string> CompleteFromPrefix(std::string_view prefix, size_t count = 3)
+```
+* How to reconstruct the words from the trie?
+    * Option 1: During the BFS also save the partially-completed word in the queue, so you can just add the additional letter as it continues (fastest)
+    * Option 2: Once you hit a `$`, traverse the parents back to root and reverse the word
+        * *Not really possible anymore*
+    
+## DNA Pattern Matching
+*Nucleotides: `A, T, C, & G`*
+
+* Given a long DNA sequence, find the largest prefix in the trie that matches
+* Start at letter 0 of the sequence, `FindPrefix`, then go on to letter 1, `FindPrefix`, etc
+* Will use to find some transcription factor proteins
+
+### FASTA File Format
+* A simple, text-based file format used to describe (among other things) DNA nucleotide sequences
+* First line has a comment/description of the file, and subsequent lines have a sequence of nucleotides
+* Example:
+    ```
+    >gi|319999821:c124527448-124526573 Pan troglodytes isolate Yerkes chimp
+    ATGATACCCATCCAACTCACTGTCTTCTTCATGATCATCTATGTGCTTGAGTCCTTGACAATTATTGTGCAG
+    AGCAGCCTAATTGTTGCAGTGCTGGGCAGAGAATGGCTGCAAGTCAGAAGGCTGATGCCTGTGGACATGATT
+    CTCATCAGCCTGGGCATCTCTCGCTTCTGTCTACAGTGGGCATCAATGCTGAACAATTTTTGCTCCTATTTT
+    AATTTGAATTATGTACTTTGCAACTTAACAATCACCTGGGAATTTTTTAATATCCTTACATTCT
+    ```
+
+# Modern C++ Topics
+
+## constexpr
+* C++11 feature to allow compile-time computation
+* Example:
+```cpp
+constexpr int max(int a, int b)
+{
+    return (a > b ? a : b);
+}
+```
+* Then if we have code like this:
+```cpp
+constexpr int a = max(5, 6);
+```
+* The compiler will replace it with:
+```cpp
+int a = 6;
+```
+* Better example:
+```cpp
+constexpr int factorial(int x)
+{
+    if (x > 0)
+    {
+        return x * factorial(x - 1);
+    }
+    else
+    {
+        return 1;
+    }
+}
+```
+* This won't compile:
+```cpp
+struct Test
+{
+    static const int CONST_INT = 0;
+    static const float CONST_FLOAT = 0.0f;
+};
+```
+* Error: "A member of type const float cannot have an in-class initializer"
+* Use `constexpr` instead:
+```cpp
+struct Test
+{
+    static constexpr int CONST_INT = 0;
+    static constexpr float CONST_FLOAT = 0.0f;
+};
+```
+
+## Filesystem
+* Purpose: "implementations of an interface that computer programs written in the C++ programming language may use to perform operations on file systems and their components, such as paths, regular files, and directories."
+* Gives us a cross-platform way for common file system operations like finding if a file exists, getting the size of files, iterating over files in directories, and more
+
+### Checking if Files exist
+```cpp
+// Shortcut so we don't have to type out std::filesystem every time
+namespace fs = std::filesystem;
+
+// Get the size of a file (throws an exception if it doesn't exist)
+try
+{
+    auto fileSize = fs::file_size("CMakeLists.txt");
+    std::cout << "Size = " << fileSize << "\n";
+}
+catch (fs::filesystem_error& e)
+{
+    std::cout << "Error from filesystem: " << e.what() << "\n";
+}
+```
+
+### No exceptions?
+* If you don't want to use exceptions, most versions of filesystem functions have an alternative version that takes in an `error_code`
+```cpp
+std::error_code ec;
+auto fileSize = fs::file_size("asdf", ec);
+
+// A default error code means it's ok
+if (ec == std::error_code{}) {
+    std::cout << "Size = " << fileSize << "\n";
+} else {
+    std::cout << "Error: " << ec.message() << "\n";
+}
+```
+
+### Path objects
+* You can construct a path object to a single file, and extract information from it:
+```cpp
+fs::path pathTest("CMakeLists.txt");
+
+// Does this file exist?
+if (fs::exists(pathTest))
+{
+    std::cout << "File exists\n";
+}
+else
+{
+    std::cout << "File does not exist\n";
+}
+```
+
+### Iterating over all files in a directory
+```cpp
+for (const auto& p : fs::directory_iterator(".")) {
+    std::cout << p.path() << "\n";
+}
+```
+
+## Optional, Variant, Any
+*(Only Optional is really ever used)*
+
+### std::optional
+* An optional is a wrapper that can optionally contain a value
+* You can use this for cases where you are not sure whether or not something would happen, for example:
+```cpp
+// This function will try to convert a string to an integer and either --
+// Return the integer if successful
+// Return an unset optional if not successful
+std::optional<int> TryGetInt(const std::string& s) {
+    try {
+        int result = std::stoi(s);
+        return std::optional<int>(result);
+    } catch (std::exception&) {
+        // stoi failed so return an unset optional
+        return std::optional<int>();
+    }
+}
+```
+* You can pass around optionals to other functions, and the bool conversion operator will be true if it is set, false otherwise:
+```cpp
+void CoutOptional(const std::optional<int>& o) {
+    if (o) {
+        std::cout << o.value() << "\n";
+    } else {
+        std::cout << "Optional was unset!\n";
+    }
+}
+```
+* This code:
+```cpp
+auto result1 = TryGetInt("10");
+CoutOptional(result1);
+auto result2 = TryGetInt("xyzw");
+CoutOptional(result2);
+```
+* Would output:
+```
+10
+Optional was unset!
+```
+
+### std::variant
+* sort of like a union
+### std::any
+* have any type
+
+## Feature Testing (C++20 Later)
+### Testing for features
+* Need to include the `<version>` header
+* Allows you to test, with the preprocessor, if a feature is supported, like:
+```cpp
+#if defined(__cpp_lib_filesystem)
+// This code is compiled if the platform
+// support std::filesystem
+std::filesystem::path myPath("hello");
+#endif
+```
+
+### Better way of checking for parallel algos
+```cpp
+#if !defined(__cpp_lib_parallel_algorithm)
+#if defined(__APPLE__)
+// On Apple platforms, we can use this if we have to
+#define PSTLD_HEADER_ONLY
+#define PSTLD_HACK_INTO_STD
+#include "pstld.h"
+#else
+#error "Parallel algos are required"
+#endif // defined(__APPLE__)
+#else
+#include <algorithm>
+#include <execution>
+#endif // !defined(__cpp_lib_parallel_algorithm)
+```
+
+* NOTE: *go over slides 22+ on Move Semantics*

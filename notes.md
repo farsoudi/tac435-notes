@@ -1196,3 +1196,36 @@ int main() {
 
 # Functional Programming; Threads
 *Week 5, Lecture 2, 02-11*
+*Not on midterm, is on PA4*
+* **Imperative Language** is a language that does not have any classes.
+    * *C, Fortran*
+* **Functional** use fnuctions for everything.
+    * *Haskell, Ocaml, LISP*
+* ***C++*** *is crossover between imperative and OOP. Because you don't NEED to use classes but just use templates.*
+    * *With the additional of lambdas in std11 its arguably also a functional language.*
+* ***note: whenever using a lambda if you capture [this] make sure that the this object outlives the lambda to avoid undefined behavior.***
+
+## Functional Programming
+* Functions are **First class citizens**
+    * Passed as argument to other functions
+    * Returned from other functions
+    * Can be assigned to a variable or stored in a container
+    * ***C++ Lambda satisfy these criteria***
+
+* In functional programming, *higher-order functions* - functions that can accept other functions as arguments - are allowed
+* Three very common higher-order functions:
+    * **map** - apply a function to each element in a collection, storing the result in another collection
+    * **filter** - remove elements from a collection based on a filtering function
+    * **reduce** - reduce a collection to a single value by applying a binary operation repeatedly
+* All three of these higher-order functions are more or less supported in C++, though they have different names
+
+* Generally, functional programming tries to largely limit *side effects* - having any interaction with the world "outside" from the instance of a function call
+* Examples of side effects:
+    * Modifying data passed into the function (e.g., pass-by-reference where you change the values)
+    * Modifying global or static data
+    * **Any I/O** (*can be hard to realistically enforce*)
+
+* Functional programs should generally be stateless - in a practical sense, this means no globals, statics, etc
+* All functions should accept at least one argument
+* All functions must return data or another function - no void functions
+* Avoid loops/iteration - always use recursion or higher-order functions. Some functional programming languages do not have any iteration at all

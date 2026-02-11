@@ -954,3 +954,245 @@ std::filesystem::path myPath("hello");
 ```
 
 * NOTE: *go over slides 22+ on Move Semantics*
+
+# Exceptions and RTTI; The Preprocessor
+*Week 5, Lecture 1, 02-09*
+* You can disable exceptions in your compiler and stl implementations will continue on failure. *Technically not STL compliant*
+![Image 21](img/img21.png)
+
+### What class type to throw?
+* Never, ever, ever throw a class type whose constructor could also throw an exception
+* Example:
+```cpp
+try
+{
+    throw std::string("BAD EXCEPTION HERE");
+}
+```
+* What happens if string's constructor throws an exception?
+* Answer: The program terminates
+
+### std::exception
+* Everything in the standard library throws an exception derived from `std::exception`, so you should also do this
+```cpp
+#include <exception>
+
+class MyException : public virtual std::exception
+{
+    // what is a virtual function which returns a description
+    const char* what() const noexcept override { return "MY EXCEPTION!"; }
+};
+
+// later on...
+try
+{
+    throw MyException();
+}
+catch (std::exception& e)
+{
+    std::cout << e.what() << std::endl; // "MY EXCEPTION!"
+}
+```
+
+### noexcept
+* If you have a function that does not throw an exception back to the caller, specify `noexcept`
+```cpp
+// Default: Can throw anything
+void Function1();
+
+// Should not throw an exception
+void Function2() noexcept;
+```
+* It is a guarantee to the caller that they do not have to worry about exceptions from this function
+* NOTE: You have to specify `noexcept` on an override of `what`
+
+### Exception-Safe Code
+* If your code uses exceptions, you cannot guarantee that every function will reach a return statement
+* Therefore, you cannot leave any dangling resources
+* Example from Effective C++:
+```cpp
+void PrettyMenu::changeBackground(std::istream& imgSrc)
+{
+    lock(&mutex);
+    delete bgImage;
+    ++imageChanges;
+    bgImage = new Image(imgSrc);
+    unlock(&mutex);
+}
+```
+* What happens if `new` throws an exception?
+* Solution: use RAII
+
+### RAII
+* Resource Acquisition is Initialization
+* Acquire the resource in the constructor, release in the destructor
+```cpp
+void PrettyMenu::changeBackground(std::istream& imgSrc)
+{
+    // Construct a LockGuard instead of just a function
+    LockGuard lock(&mutex);
+    delete bgImage;
+    ++imageChanges;
+    bgImage = new Image(imgSrc);
+    // Not needed anymore, destructor of LockGuard does this
+    // unlock(&mutex);
+}
+```
+* Now regardless of how we exit changeBackground (normally, exception, etc), the unlock is guaranteed
+
+### RTTI
+* RTTI = Run-time Type Information (or Run-time Type Identification)
+* In order for exceptions to work, C++ needs to figure out, at run-time, the type of the exception
+* Thus, RTTI and exceptions sort of go hand in hand
+* RTTI only works properly for classes that are polymorphic (e.g., have at least one virtual function, inherited or not)
+* This is because RTTI information is stored in the virtual function table
+
+#### dynamic_cast
+* A down cast allows you to take a parent class pointer, and at runtime try to cast it to a child class
+* Example: if you have a `Shape` pointer, and want to find out if it is a `Triangle` at runtime:
+```cpp
+Shape* myShape;
+Triangle* myTriangle = dynamic_cast<Triangle*>(myShape);
+if (myTriangle) // dynamic_cast returns 0 if not a triangle
+{
+    // do something
+}
+```
+* Should only be used in cases where you have a function you do not want to expose in the base class, which is rare
+
+#### typeid
+* Allows you to figure out the type of something at runtime
+```cpp
+class Person
+{
+public:
+    virtual ~Person() {}
+};
+class Employee : public Person
+{
+public:
+};
+
+// Later...
+Person* ptr = new Employee();
+if (typeid(*ptr) == typeid(Employee))
+{
+    // This is an employee!!
+}
+```
+
+#### std::type_info
+* The use of `typeid` returns a `std::type_info` class, which is defined in `<typeinfo>`
+* Notable member functions:
+    * `operator!=` (self-explanatory)
+    * `operator==` (self-explanatory)
+    * `name` (returns implementation-specific name, as a `const char*`)
+
+#### Default RTTI Drawback
+* Every single class with a virtual function has additional RTTI information stored in its virtual function table
+* What happens if you have 10,000 classes with virtual functions, but you only need RTTI for 100 of them?
+* Answer: Unnecessary memory waste
+* Some C++ libraries (LLVM, for example) implement their own RTTI for this reason
+
+### The Preprocessor
+* Processes all `#` directives to generate the final C++ code which will be compiled
+* The resulting code is often called a "translation unit"
+* Example 1:
+```cpp
+#include "dbg_assert.h"
+// dbg_assert.h code is essentially copy/pasted at this line
+```
+* Example 2:
+```cpp
+// Compile this only in a "debug" build
+#ifdef _DEBUG
+// Random debug code...
+#endif
+```
+* Example 3:
+```cpp
+// Replaces "MAX_POOL_SIZE" with 256 in code
+// (Breaks Rule #2 in Effective C++, use const instead)
+#define MAX_POOL_SIZE 256
+```
+
+### Be careful with #include
+* Don't make an "everything.h" that you include everywhere:
+```cpp
+// INCLUDE EVERYTHING
+#include <algorithm>
+#include <bitset>
+#include <cassert>
+#include <cctype>
+#include <cerrno>
+#include <cfloat>
+// ...
+```
+* Only include files you really need to include
+
+#### Include "Guard"
+* May have seen this before:
+```cpp
+#ifndef _MYFILE_H_
+#define _MYFILE_H_
+
+// stuff here
+
+#endif // _MYFILE_H_
+```
+* The above works, but a preferred method is to put this at the start of the header (works in Visual Studio, Clang, and GCC):
+```cpp
+#pragma once
+```
+
+#### Macros
+* Not only can we define values like this:
+```cpp
+#define MY_VALUE 10
+```
+* We can replace one expression with another:
+```cpp
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+```
+* So if you write code like this:
+```cpp
+std::cout << max(5, 6);
+```
+* Preprocessor replaces max with the defined code and our parameters:
+```cpp
+std::cout << (((5) > (6)) ? (5) : (6));
+```
+* Problem 2: must be very careful with parentheses
+```cpp
+#define MULT(x, y) x * y
+
+// What if I do this?
+int z = MULT(3 + 2, 4 + 2);
+```
+* Preprocessor evaluates it to:
+```cpp
+int z = 3 + 2 * 4 + 2;
+```
+* Instead, you need a lot of parentheses:
+```cpp
+#define MULT(x, y) ((x) * (y))
+```
+* So the preprocessor gives you:
+```cpp
+int z = ((3 + 2) * (4 + 2));
+```
+* Preprocessor trick - stringify
+    * You can convert any token passed to the preprocessor to a string using `#` in front of the parameter name
+```cpp
+#include <iostream>
+
+#define TO_STRING(str) #str
+
+int main() {
+    std::cout << TO_STRING(10 + 5) << std::endl;
+    return 0;
+}
+```
+
+# Functional Programming; Threads
+*Week 5, Lecture 2, 02-11*

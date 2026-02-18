@@ -1229,3 +1229,357 @@ int main() {
 * All functions should accept at least one argument
 * All functions must return data or another function - no void functions
 * Avoid loops/iteration - always use recursion or higher-order functions. Some functional programming languages do not have any iteration at all
+
+### Average a Vector - An Example
+```cpp
+// Imperative-style implementation
+float averageVector(const std::vector<float>& v) {
+    float sum = 0.0f;
+    for (auto& i : v) {
+        sum += i;
+    }
+
+    return sum / v.size();
+}
+```
+
+### Average a Vector, Cont'd
+* To follow the principles of functional programming, the loop go...
+```cpp
+float averageVector(const std::vector<float>& v) {
+    float sum = 0.0f;
+    for (auto& i : v) {
+        sum += i;
+    }
+
+    return sum / v.size();
+}
+```
+
+### Functional Decomposition
+* *Functional decomposition* is a fancy way of saying "break a function into sub functions"
+* Let's make an average function that computes the average given a sum and a quantity:
+```cpp
+float average(float sum, size_t qty) {
+    return sum / qty;
+}
+```
+
+### Reduce
+* *reduce* - take a collection and reduce it to a single value by applying a binary operator repeatedly
+* *We want to reduce the collection to the sum of its components!*
+* In C++, reduce can be implemented via `std::accumulate` in the `<numeric>` header
+
+### Sum Vector
+```cpp
+float sumVector(const std::vector<float>& v) {
+    // std::accumulate can work as a REDUCE
+    return std::accumulate(v.begin(), // Start of range
+                           v.end(),   // End of range
+                           0.0f,      // Initial value
+                           // Binary lambda expression
+                           [](const float& a, const float& b) {
+                               return a + b;
+                           });
+}
+```
+* Note: default `std::accumulate` already uses `a + b`, so the custom lambda is not necessary
+
+### Putting it Together
+```cpp
+// Functional implementation
+float average(float sum, size_t qty) {
+    return sum / qty;
+}
+
+float sumVector(const std::vector<float>& v) {
+    return std::accumulate(v.begin(), v.end(), 0.0f);
+}
+
+float averageVector(const std::vector<float>& v) {
+    return average(sumVector(v), v.size());
+}
+```
+
+### all_of, any_of, none_of - A lambda usage case
+* A series of new functions in C++11 in `<algorithm>`
+* Given a range of values and a unary predicate with this signature:
+```cpp
+bool predicate(const T& a);
+```
+* It will return true if *all_of*, *any_of*, or *none_of* the elements satisfy the condition
+
+### all_of Example
+```cpp
+std::vector<int> v1{ 2, 4, 6, 8, 10 };
+if (std::all_of(v1.begin(), v1.end(), [](const int& i) {
+    return (i % 2) == 0;
+}))
+{
+    std::cout << "All are even!" << std::endl;
+}
+else
+{
+    std::cout << "All aren't even" << std::endl;
+}
+```
+
+### copy_if - Another Example
+```cpp
+std::vector<int> from{ 1, 2, 3, 4, 5 };
+std::vector<int> to;
+
+auto is_odd = [](const int& i) { return i % 2 == 1 }; 
+
+// Copy from the "from" container into the "to" container,
+// only if is_odd returns true for that element
+std::copy_if(from.begin(), from.end(),
+             std::back_inserter(to), is_odd);
+```
+
+### copy_n
+* Copies n elements from a source collection to a back_inserted collection
+
+### Map
+* The *map* higher-order function applies a function to each element, saving the results in a different collection
+* It can be approximated by the `std::transform` function:
+```cpp
+std::vector<float> divEachBy(const std::vector<float>& v, float denominator) {
+    std::vector<float> ret;
+    // std::transform can be used to map
+    std::transform(v.begin(),   // Start of range
+                   v.end(),     // End of range
+                   std::back_inserter(ret), // Collection to insert into
+                   // Unary function that returns transform value
+                   [denominator](const float& a) {
+                       return a / denominator;
+                   });
+    return ret;
+}
+```
+
+### Write our own "map" function?
+```cpp
+template <typename T, typename U>
+T map(const T& v, U f) {
+    T ret;
+    std::transform(v.begin(), v.end(),
+                   std::back_inserter(ret), f);
+    return ret;
+}
+```
+* (Aside: This is an example of where using `namespace std` may not be good)
+
+### Filter
+* The *filter* higher-order function removes elements based on a Boolean filter condition
+* We could write this higher-order function, too:
+```cpp
+template <typename T, typename U>
+T filter(const T& v, U f) {
+    T ret;
+    std::copy_if(v.begin(),  // Start of range
+                 v.end(),    // End of range
+                 std::back_inserter(ret), // Where to insert
+                 f); // Boolean unary function
+    return ret;
+}
+```
+
+### Filter in Action
+```cpp
+std::list<int> filterIsPositive(const std::list<int>& l) {
+    return filter(l, [](const int& a) {
+        return a > 0;
+    });
+}
+```
+
+### Generate
+* Helper that can be used to insert elements into a collection, where elements need to be initialized with a particular function
+```cpp
+// Make a vector w/ 10 elements
+std::vector<int> v(10);
+std::generate(v.begin(),  // start of range
+              v.end(),    // end of range
+              // Lambda that returns generated value
+              []() {
+                  return rand();
+              });
+```
+
+### adjacent_difference
+```cpp
+std::vector<int> from({ 10, 15, 20, 25, 30, 35 });
+std::vector<int> to;
+
+std::adjacent_difference(from.begin(), // Start of range
+                         from.end(),   // End of range
+                         std::back_inserter(to), // Collection to insert into
+                         // Lambda to compute difference (defaults to subtraction)
+                         [](int a, int b) {
+                             return a - b;
+                         });
+```
+* The first element in the resulting range is a copy; the rest of the collection is differences (index 1 - index 0 of the source is stored in index 1 of the destination, and so on)
+* This subtracts `idx - 1` from `idx` for each element
+* So in the above, `to` will contain: `{ 10, 5, 5, 5, 5, 5 }`
+
+## Threads Basics
+
+### Process
+* A computer program:
+    * A passive collection of instructions typically stored in a file on disk
+* A process is a program in execution
+    * **Allocated memory** (heap, stack, code)
+    * **OS descriptors** of resources that are allocated to the process: such as file descriptors
+    * **Security attributes**, such as the process owner and the process' set of permissions
+    * **Processor state** (context), such as the content of registers and physical memory addressing
+* Several processes may be associated with the same program
+    * Multiple instances of a program running at the same time
+
+### Thread
+* The smallest sequence of instructions that can be managed independently by a OS
+* Multiple threads can exist within one process
+    * Can execute concurrently and sharing resources such as memory, while different processes do not share these resources
+* Threads of a process share
+    * Code
+    * Memory (Global variables, heap)
+
+### std::thread - Create Threads Using Function Pointers
+
+#### Calculating the sum
+* Calculating the sum of numbers in the range `[start, end)`
+```cpp
+void AccumulateRange(uint64_t &sum, uint64_t start, uint64_t end) {
+    sum = 0;
+    for (uint64_t i = start; i < end; i++) {
+        sum += i;
+    }
+}
+```
+
+#### Calculating the sum (two threads)
+* Two threads each working on half of the range
+* `total = partial_sum[0] + partial_sum[1]`
+
+#### Pointer to Function
+```cpp
+std::thread t1(AccumulateRange,
+               std::ref(partial_sums[0]), 0, 1000 / 2);
+```
+
+#### Use std::ref to pass by reference
+* All parameters are passed by value; use `std::ref` to pass by reference
+* `std::ref` wraps the argument in a `std::reference_wrapper` so `std::thread` stores a reference instead of copying the value
+* Use `std::ref` instead of `&` because `std::thread` copies arguments into its internal storage; a raw `&` would pass a pointer and change the function signature, while `std::ref` keeps the same reference parameter type
+
+### Joining Threads
+* Create and start each thread
+* Wait for threads to end with `join`
+```cpp
+std::thread t1(AccumulateRange, std::ref(partial_sums[0]), 0, step);
+std::thread t2(AccumulateRange, std::ref(partial_sums[1]), step, number_of_threads * step);
+
+t1.join();
+t2.join();
+```
+
+### std::thread - Create Threads Using Lambda Functions
+
+#### What's a lambda?
+* **Reminder:** Lambda function is a function definition that is not bound to an identifier
+```cpp
+[capture](parameters) -> return_type { function_body }
+```
+```cpp
+[](int x, int y) -> int { return x + y; }
+```
+```cpp
+std::vector<int> some_list{ 1, 2, 3, 4, 5 };
+int total = 0;
+std::for_each(begin(some_list), end(some_list),
+              [&total](int x) { total += x; });
+```
+
+#### Using lambdas
+* Calculating the sum of numbers in the range `[start, end)`
+```cpp
+[i, &partial_sums, step] {
+    for (uint64_t j = i * step; j < (i + 1) * step; j++) {
+        partial_sums[i] += j;
+    }
+}
+```
+```cpp
+for (uint64_t i = 0; i < number_of_threads; i++) {
+    threads.push_back(std::thread([i, &partial_sums, step] {
+        for (uint64_t j = i * step; j < (i + 1) * step; j++) {
+            partial_sums[i] += j;
+        }
+    }));
+}
+```
+
+#### Using lambdas (overview)
+* Vector of threads
+* Vector of sums
+* Create, start, and push each thread into a vector
+* Wait for threads to end
+* Calculate total sum
+
+#### Using lambdas - takeaway
+* As an alternative to passing a parameter, we can pass references to lambda functions using **lambda capture**
+
+### std::async - Task, Futures, and Promises
+
+#### Async - pointer to function
+```cpp
+uint64_t GetRangeSum(uint64_t start, uint64_t end) {
+    uint64_t sum = 0;
+    for (uint64_t i = start; i < end; i++) {
+        sum += i;
+    }
+    return sum;
+}
+
+auto t = std::async(GetRangeSum, 0, 100 / 2);
+auto return_value = t.get();
+```
+* `std::async` returns a **future** (similar to a JS Promise)
+* `t.get()` blocks until the task finishes; do other work first and call `get()` when you need the result
+
+#### Async - tasks in a vector
+```cpp
+std::vector<std::future<uint64_t>> tasks;
+
+for (uint64_t i = 0; i < number_of_threads; i++) {
+    tasks.push_back(std::async(GetRangeSum, i * step, (i + 1) * step));
+}
+
+uint64_t total = 0;
+for (auto& t : tasks) {
+    total += t.get();
+}
+```
+* Create, start, and push each task into a vector
+* Wait for tasks to end and read return values
+
+#### std::launch policy
+* `std::async` can take one more parameter of type `std::launch`:
+    * `std::launch::async`: the function will run on its own (new) thread
+    * `std::launch::deferred`: the function call will be deferred until either `wait()` or `get()` is called on the future
+    * `std::launch::async | std::launch::deferred`: the implementation may choose (default)
+```cpp
+auto t = std::async(policy, GetRangeSum, 0, 100 / 2);
+```
+
+# Genetic Algorithms
+*Week 6, Lecture 1, 02-18*
+## PA4
+* Traveling Salesman
+    * *Given LAX + 19 Diff locations in LA/
+    * Find the shortest path that starts at LAX, visits each other location once, and returns to LAX.
+    * Assume you can use a helicopter because roads add complexity*
+* While there are more efficient algorithms, they still are extremely slow (non-polynomial time)
+* Instead use a *heuristic algorithm* - try to find a solution that we think is pretty good (but cannot prove how good it is)
+* A *genetic algorithm* (GA) is one type of heuristic algorithm

@@ -1583,3 +1583,170 @@ auto t = std::async(policy, GetRangeSum, 0, 100 / 2);
 * While there are more efficient algorithms, they still are extremely slow (non-polynomial time)
 * Instead use a *heuristic algorithm* - try to find a solution that we think is pretty good (but cannot prove how good it is)
 * A *genetic algorithm* (GA) is one type of heuristic algorithm
+* Takes the idea of Darwinism and applies it as a heuristic algorithm
+* Roughly, we start with some guesses and try to pick the "fittest" guesses to evolve into better guesses
+* After enough iterations, we stop and have a pretty good solution
+
+### When are GAs a good option?
+* You have a problem where you want the "best possible" solution
+* There is no known efficient algorithm to find the optimal solution
+* You can quantify how good or bad a solution is
+* You have a way to combine parts of two (or more) solutions
+
+## Genetic Algorithm Cycle
+![Image 22](img/img22.png)
+
+### Initialize GA
+* Generate a random initial population
+* Ideally want a simple representation of each member (text "genomes" are popular, but not the only way)
+* Size of population varies (for us, a command line argument)
+
+### Our Population "Genome" Representation
+* A vector of numbers corresponding to the index of the location (the first location in the file is 0)
+* So this...
+    * 0 5 3 2 1 4
+* Means first start at location 0, then go to 5, then go to 3, then go to 2, then go to 1, then go to 4, then return to 0 (implied)
+
+* ***For us, we start/end at location 0 (LAX)***
+
+### Sample Initial Population (Size = 8)
+* Example populations:
+    * 0: 0 5 3 2 1 4
+    * 1: 0 2 4 5 3 1
+    * 2: 3 5 2 4 0 1
+    * 3: 1 3 2 4 5 0
+    * 4: 5 4 0 2 1 3
+    * 5: 5 2 0 1 4 3
+    * 6: 5 0 2 4 3 1
+    * 7: 0 1 3 2 4 5
+* *Note:* In this case, we assume the tour can start at any location. In our "traveling Trojan" problem we will always start at location 0
+
+### Calculate Fitness
+* For us, "more fit" = shorter distance = better.
+* We can use std::accumulate
+    * Make sure to account the distance from last to first (wrap aronud)
+
+* For fitness, we use the *Haversine distance* formula to compute the distance of each segment on the path:
+```
+dlon = lon2 - lon1
+dlat = lat2 - lat1
+a = (sin(dlat/2))^2 + cos(lat1) * cos(lat2) * (sin(dlon/2))^2
+c = 2 * atan2( sqrt(a), sqrt(1-a) )
+distance = 3961 * c
+```
+* Once we have the segment distances, sum them together for the total tour distance
+* **PA Note:** You have to convert the numbers in the input file from degrees to radians. To convert, multiply by 0.0174533
+* *In this case, population member #3 is the fitttest (shortest tour)*
+
+### Selection
+* Based on fitness rankings, select pairs of individuals to reproduce
+* Should give some (but not all) preference to fitter individuals
+* Select number of pairs = population size for pairwise reproduction
+* Many ways to do this; slides describe what we use in the PA
+
+### Sample Selection Probabilities
+* Step 1: Sort population member #s by fitness (smallest to largest)
+    * Example order: 3, 0, 2, 1, 5, 4, 6, 7
+* Step 2.a: Give each member the same probability (1/popSize)
+* Step 2.b: Multiply the two fittest by 6 (the 6 is an arbitrary magic number)
+* Step 2.c: Multiply the remainder of the top half, not including the top two, by 3 (3 is a magic number)
+* Step 2.d: Renormalize the probabilities (sum them and divide by sum)
+    * sum = 22/8
+    * final probabilities: 6/22, 6/22, 3/22, 3/22, then 1/22 for each of the rest
+
+### Sample Selecting Pairs
+* Step 3: Assign the range of [0,1] to the different population members, based on probabilities
+* Step 4: Generate two random doubles in the range [0,1] to figure out two parents
+    * Example random doubles = (0.40, 0.68) -> parent pair = (1, 3)
+* Step 5: Repeat step 4 for however many pairs you want (in our case, popSize)
+    * Example pairs: (1, 3), (2, 1), (0, 3), (4, 1), (3, 5), (3, 7), (3, 3), (2, 3)
+
+### Our Selection Process
+* Generate the pairs as follows:
+    1. Sort the population by fitness
+    2. Distribute probability as follows:
+        a. Give each member the same probability (1/popSize)
+        b. Multiply the two fittest by 6
+        c. Multiply the remainder of the top half, not including the top two, by 3
+        d. Renormalize the probabilities
+    3. Assign the range of [0,1] to the different population members, based on probabilities
+    4. Generate two random doubles in the range [0,1] to figure out two parents
+    5. Repeat step 4 for however many pairs you want (in our case, popSize)
+
+### Why not only select fittest?
+* We want to avoid rapid genetic drift
+
+### Genetic Drift = Bad
+* Genetic drift means we quickly converge on a solution
+* However, there is no guarantee the solution is globally optimal - it could be locally optimal (classic "hill climbing" problem)
+    ![Image 23](img/img23.png)
+
+### Crossover/Mutation
+* Reproduce selected pairs by "crossing over" the genomes
+* Might also introduce random mutations (as in real genetics)
+
+### Crossover Example
+* Select whether parent A or B goes first
+    * For this example: A
+* Select a crossover index from 1 to size - 2
+    * For this example: 2
+* We selected A goes first, and 2 is the crossover index
+    * Copy from A [0...2]
+    * A: 0 5 3 2 1 4
+    * B: 0 4 3 5 1 2
+    * Child: 0 5 3 _ _ _
+* Since B goes second, copy any locations from B that are not already in the child (in order)
+    * Child: 0 5 3 4 1 2
+
+### Mutations
+* We'll just use a simple mutation implementation:
+* There's a chance a mutation occurs when creating a child
+* If we mutate, pick two random indices (not including index 0), and swap the values
+
+### Crossover Summary
+1. Generate a random crossover index value from [1, size - 2]
+2. "Flip a coin" to decide which parent should go first
+3. Selected first parent will copy all elements from beginning up to and including crossover index into child
+4. Second parent will start at the beginning, and copy over all elements that don't already appear in the child
+5. Mutate, based on probability
+
+### Repeat
+* Keep repeating until reaching a condition of termination
+* In our case, number of generations is specified as a command line argument
+
+### Convergence in our case
+* Eventually, we end up with a population with very similar members
+
+## Random Numbers in Modern C++
+
+### C++11 Random
+* The original `rand()` is *implementation-defined*, which means:
+    * Not portable
+    * May not be thread-safe
+    * May not be a great random number generator
+    * Code like `rand() % num` is not a great way to guarantee a specific type of distribution
+        * One value may be 5% higher than another for example
+
+* In C++11 there is now a standardized library in `<random>`:
+    * Defines a set of random number generators with specific implementations
+        * *Gauranteed on diff platforms*
+    * Defines specific ways to extract randomized distributions (uniform, Gaussian, etc.)
+        * *May be different between platforms*
+
+### C++11 Random, Basics
+* First, declare an instance of a generator
+* We are using the Mersenne Twister PRNG:
+```cpp
+std::mt19937 randGen(seed);
+```
+* In our case, the seed value will be a command line parameter. This is to guarantee your results will match my results
+* **PA Note:** You must make sure you generate random numbers where the instructions tell you to, or you will get different results
+
+### C++11 Random, Distribution
+* First declare the distribution
+* Then when you want to use it, you call it like a function, passing in the random number generator:
+```cpp
+// Pick a random value from [0, 10]
+std::uniform_int_distribution<int> myDist(0, 10);
+int index1 = myDist(randGen);
+```

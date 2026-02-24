@@ -1750,3 +1750,15 @@ std::mt19937 randGen(seed);
 std::uniform_int_distribution<int> myDist(0, 10);
 int index1 = myDist(randGen);
 ```
+
+# Exam Review Notes
+*Week 7, Lecture 1, 02-23*
+* Q1
+    * Two criteria for an ellision to happen:
+        1. Unnamed return value
+        2. Caller uses in constructor (not assignment)
+    * `z = func(y)`
+        * It is not ellided because Z is already an object constructed when we procede to function(y).
+    * ***Note: Assignments happen on objects previously made. Otherwise "=" on the same line is a constructor.***
+    * *Review what happens when we remove the flag*
+    * *Do we implement rule of 5 only when we enable this flag?*

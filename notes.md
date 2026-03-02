@@ -1762,3 +1762,15 @@ int index1 = myDist(randGen);
     * ***Note: Assignments happen on objects previously made. Otherwise "=" on the same line is a constructor.***
     * *Review what happens when we remove the flag*
     * *Do we implement rule of 5 only when we enable this flag?*
+* **Move Constructor** `T(T&& src))`
+    * `this` is uninitialized
+    1. steal pointers/data from src
+    2. null/zero src
+* **Move Assignment** `T& operator=(T&& src))`
+    * `this` is is already something
+    1. if this == &src, return \*this
+    2. release everything from '\*this', we don't care anymore
+    3. steal from src
+    4. put src into valid empty state / nullptrs
+    3. null/zero src
+* ***moves should always be marked noexcept***
